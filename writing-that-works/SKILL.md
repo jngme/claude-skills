@@ -1,6 +1,6 @@
 ---
 name: writing-that-works
-description: Applies the plain-English business writing discipline of Roman & Raphaelson's "Writing That Works" to every response — lead with the answer, cut padding, prefer specifics over generalities, and use a technical term only when it is the precise name for the thing. Use when writing anything the user reads: chat replies, explanations, summaries, plans, commit messages, PR descriptions, docs, emails, and code comments. Also use when the user asks to make writing clearer, shorter, less jargon-heavy, or more direct.
+description: Applies the plain-English business writing discipline of Roman & Raphaelson's "Writing That Works" to every response — lead with the answer, cut padding, prefer specifics over generalities, and use a technical term only when it is the precise name for the thing. Use when writing anything the user reads — chat replies, explanations, summaries, plans, commit messages, PR descriptions, docs, emails, and code comments. Also use when the user asks to make writing clearer, shorter, less jargon-heavy, or more direct.
 ---
 
 # Writing that works

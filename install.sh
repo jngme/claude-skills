@@ -13,7 +13,7 @@ set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLAUDE_SKILLS="$HOME/.claude/skills"
-MINE=(prd-format writing-that-works explain-diff-html learning-session learning-commit)
+MINE=(prd-format writing-that-works explain-diff-html human-review learning-session learning-commit)
 
 do_mine=true
 do_vendor=true
@@ -75,7 +75,11 @@ fi
 cat <<'EOF'
 
 Not covered by this script:
-  interface-craft   installed outside the skills.sh lockfile — reinstall by hand
-  human-review      lives only on this machine, not in this repo
-  knowledge base    the learning skills read ~/knowledge base/ — restore separately
+  interface-craft   by Josh Puckett — https://www.interfacecraft.dev
+                    no upstream install source recorded, and no license ships with
+                    the files, so it is neither vendored here nor auto-installed.
+                    Copy it into ~/.agents/skills/interface-craft by hand.
+  knowledge base    the learning skills read ~/knowledge base/ — restore separately,
+                    then set VAULT at the top of learning-session/SKILL.md and
+                    learning-commit/SKILL.md if your path differs.
 EOF

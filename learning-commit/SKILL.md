@@ -1,96 +1,132 @@
 ---
 name: learning-commit
-description: Commits a finished learning session to the concept map and learning log. Reads the session scratch file, judges each candidate against strict promotion rules, proposes every write as a diff, and writes only after the learner confirms. Use only when explicitly invoked as /learning-commit.
+description: Commits a finished learning session to the concept files, the reference map and the student model. Reads the lesson document rather than the transcript, judges each candidate, shows the map diff, proposes every write as a numbered diff, and writes only after the learner confirms. Use only when explicitly invoked as /learning-commit.
 disable-model-invocation: true
 ---
 
 # /learning-commit — the only writer
 
-This is the **only** skill that edits `concept-map.md` and `learning-log.md`. `/learning-session` is read-only by design, so nothing reaches these files without the learner seeing it first.
+The only thing permitted to edit `model.md`, `ai/concepts/`, `ai/maps/` and `maps/`. `/learning-session` writes the lesson document and nothing else, so no judgement reaches these files without the learner seeing it first.
 
-## Setup
+## Config
 
-Three files, in a knowledge base directory that defaults to `~/knowledge base/`. Change the path here if yours differs — nothing else in this skill hardcodes it.
+```
+VAULT   = ~/knowledge base
+LESSONS = $VAULT/ai/lessons
+```
 
-| file | role |
+| path | role |
 |---|---|
-| `session-candidates.md` | scratch buffer written by `/learning-session` |
-| `concept-map.md` | depths + prerequisites |
-| `learning-log.md` | prose entries |
+| `$LESSONS/<topic>.md` | the lesson document — **the source of truth** |
+| `$VAULT/ai/model.md` | position + open gaps |
+| `$VAULT/ai/concepts/` | one file per concept |
+| `$VAULT/ai/maps/` | reference territory per domain |
+| `$VAULT/maps/<domain>/<date>.md` | the learner's own map snapshot |
 
-Resolve `~` to the home directory before reading — file tools need an absolute path.
+## Step 1 — Read the evidence
 
-## Step 1: Read the evidence
+In order:
 
-Read, in order:
+1. The lesson document's `## Candidates` block. **This, not the conversation.** Long sessions get compacted and the transcript is lossy; the file is not.
+2. `$VAULT/ai/model.md`.
+3. Only the concept files named in the candidates.
 
-1. `session-candidates.md` — **the source of truth**, not the conversation. Long sessions get compacted and the transcript may be lossy.
-2. `concept-map.md` — current depths and edges.
-3. Only the `learning-log.md` sections named in the scratch file. Never the whole file.
+If there is no candidates block, say so and stop. Do not reconstruct a session from memory.
 
-If the scratch file is empty or missing, say so and stop. Do not reconstruct a session from memory.
+## Step 2 — Judge each candidate
 
-## Step 2: Judge each candidate against the promotion rules
-
-These rules are the point of the skill. Apply them strictly — the failure mode is optimistic promotion, and a wrong depth is worse than a missing one because it makes the next session calibrate confidently wrong.
+Two rules. The old ladder rules ("one level per session", "evidence must match the tag") are gone with the ladder.
 
 | rule | test |
 |---|---|
-| **Playback required** | Promote only if the scratch line records the concept explained back in the learner's own words. "Covered it" or "they nodded" is not evidence. |
-| **One level per session** | `— → @model`, or `@model → @read`. Never `— → @read` in a single session. |
-| **Evidence must match the tag** | `@read` needs recognition in real code. `@write` needs using or debugging it. An analogy that landed is `@model`, nothing more. |
-| **Demote on mismatch** | A `MISMATCH` line means the map was wrong. Lower the tag. Demotion needs no playback — doubt is sufficient evidence. |
+| **Playback required** | Add to `holds` only if the line records the concept explained back in the learner's own words. "Covered it" is not evidence. |
+| **Contradictions win** | A `MISMATCH` line means the model was wrong. Record the gap. Doubt needs no playback. |
 
-When evidence is ambiguous, hold the current depth and say why. Not promoting costs one session. Over-promoting silently corrupts every future calibration.
+A gap is cleared only by a playback that contradicts it. Nothing else clears a gap.
 
-## Step 3: Propose the diff — never write first
+When evidence is ambiguous, hold and say why. Not recording costs one session. Recording something false corrupts every future one.
 
-Show every change as a diff, grouped by file, with the evidence line beside each. Then stop and wait.
+## Step 3 — Render the map diff
 
-```
-concept-map.md
-  + middleware        @read    ← functions, express-routes
-      "a chain where each link can stop it" — playback correct
-  ~ event-loop        @model → @model  (HOLD)
-      recognized in app.ts:14, no playback — not enough for @read
-  ~ async-await       @read  → @model  (DEMOTE)
-      MISMATCH: asked what await does
-
-learning-log.md
-  + ## Middleware · the chain framing  (12 lines, under existing "Middleware")
-```
-
-Number them so they can be rejected individually: "commit 1 and 3, skip 2."
-
-## Step 4: Write what is confirmed
-
-**Concept map** — one line per concept, kept in the existing group:
+**This is the screen the learner sees.** Show what moved on the map, not a list of file writes. Reviewing it is retrieval practice and it is the last piece of learning in the session.
 
 ```
-middleware   @read   ← functions, express-routes
+robot-subgoals
+
+  subgoal ──── terminal-state ──── episode-horizon
+                        │
+                  credit-assignment      gap cleared
+                        │
+                  reward-shaping         NEW gap: conflated with horizon
+
+  still blank:  discount-factor · bootstrapping
 ```
 
-- Add `←` prerequisites for every new concept. A concept with no edges is invisible to the frontier calculation and defeats the map's purpose.
-- Prerequisites are what the *explanation actually leaned on* this session — not everything conceptually related.
-- Never store reverse edges (`unlocks`). They're derivable and drift.
-- Keep it short. This file is read in full every session; that only stays cheap if it stays small.
+Mark: what gained a `holds` line, what gap cleared, what gap is new, what is still untaught.
 
-**Learning log** — prose, conservative:
+## Step 4 — Propose every write as a diff
 
-- Log only what solidified. Not the running content, not the Q&A transcript.
-- **Distill into returnable reference.** The learner should re-find the concept in seconds, months later. Write for the person coming back cold, not the person who just had the conversation.
-- Tone: short sentences. Concrete over abstract — tables and named examples beat prose. No hedging ("it can sometimes be"); state the rule, then state the exception.
-- **Update the existing section, don't append a duplicate.** If a concept was re-taught with a sharper framing, replace the old framing.
-- File under the existing topic heading. Date inline: `· _YYYY-MM-DD_`.
-- Record the *framing that landed* — the analogy, the sentence that clicked. That's what the log is for; depths live in the map.
-- Preserve the learner's own edits. Never overwrite anything they wrote.
+Grouped by file, evidence beside each, numbered so they can be rejected individually. Then stop and wait.
 
-**Session log** — one bullet per concept at the bottom, chronological, brief.
+```
+ai/concepts/terminal-state.md
+  1 + holds: "the episode ends so there's no more reward to collect"
 
-**Open questions** — add anything the scratch file marked as parked.
+ai/concepts/reward-shaping.md
+  2 + gap: conflates shaping with horizon length. It addresses sparsity.
 
-## Step 5: Clear the scratch
+ai/maps/robot-subgoals.md
+  3 ~ add edge terminal-state → episode-horizon
 
-Empty `session-candidates.md` after a successful write, leaving only its header. Anything rejected in Step 3 stays in the file — it's still an open candidate for next session, not a decision.
+maps/robot-subgoals/2026-09-08.md
+  4 + new snapshot, transcribed verbatim
+```
 
-Report what was written in one line. Do not re-teach anything.
+Nothing is written before confirmation.
+
+## Step 5 — Write what is confirmed
+
+**Concept files** — `$VAULT/ai/concepts/<name>.md`, one per concept:
+
+```markdown
+---
+type: concept
+domain: <domain>
+updated: YYYY-MM-DD
+---
+# <name>
+
+## holds
+- <their own words> — _YYYY-MM-DD, how it was demonstrated._
+
+## gaps
+- <the specific wrong belief>. <the correction>.
+
+## relations
+- needs [[x]]
+- enables [[y]]
+
+## taught by
+- [[<lesson>]]
+```
+
+- `holds` lines are the learner's phrasing, dated, never rewritten. Add, never replace.
+- `gaps` are named beliefs with corrections. No ratings, no depth tags.
+- `relations` are what the explanation actually leaned on, not everything related.
+- `taught by` links the lesson. This is how a future session re-shows the original for recall.
+
+**Reference map** — `$VAULT/ai/maps/<domain>.md`. One living file, corrected in place. It references concepts, never contains them. Keep the mermaid block current: solid edges taught, dotted edges untaught. Maps may reference other maps; that is how altitude works.
+
+**Learner's snapshot** — `$VAULT/maps/<domain>/<YYYY-MM-DD>.md`. A new dated file each time, **never edited**. Transcribed verbatim including errors. The series is the only direct record of understanding changing.
+
+**Student model** — `$VAULT/ai/model.md`. Update the position row for this domain and the open-gaps list. Always current; git holds the history.
+
+## Step 6 — Clear and commit
+
+- Remove the `## Candidates` block from the lesson document, leaving the lesson itself. Anything rejected in step 4 stays in the block as an open candidate.
+- `git add ai/ maps/ && git commit` inside the vault. Commit only `ai/` and `maps/`; leave the learner's own folders for them.
+- Report what was written in one line. Do not re-teach anything.
+
+## Generating HTML
+
+On request only: render a lesson to `$LESSONS/html/<topic>.html` from the markdown. It is derived and disposable. Regenerate it rather than editing it, and never treat it as the record.

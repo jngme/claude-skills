@@ -1,155 +1,158 @@
 ---
 name: learning-session
-description: Teaches one concept at a time from first principles, using a prerequisite map to pitch every explanation at the depth the learner actually holds. Probes with pointed questions before teaching, and never writes to the knowledge base. Use only when explicitly invoked as /learning-session.
+description: Teaches one concept, starting from what the learner already holds rather than from scratch. Reads the student model first, re-shows the original lesson when one exists, probes against real code, and appends to a live lesson document. Writes only that document. Use only when explicitly invoked as /learning-session.
 disable-model-invocation: true
+argument-hint: "<what you want to understand> [path/to/handoff.md]"
 ---
 
 # /learning-session
 
-Teach the learner one concept, at the right depth, and write nothing.
+Teach one concept, at the level the learner actually holds, and write only the lesson document.
 
-**Read-only.** Never edit `concept-map.md` or `learning-log.md`. The only file this skill writes is the scratch file in Step 5. Committing is `/learning-commit`, which the learner invokes.
+## Config
 
-## Setup
+Change these two paths here. Nothing else in this file hardcodes them.
 
-Three files, in a knowledge base directory that defaults to `~/knowledge base/`. Change the path here if yours differs — nothing else in this skill hardcodes it.
+```
+VAULT   = ~/knowledge base
+LESSONS = $VAULT/ai/lessons
+```
 
-| file | role | who writes |
+| path | role | who writes |
 |---|---|---|
-| `concept-map.md` | depths + prerequisites; read every session | `/learning-commit` |
-| `learning-log.md` | prose entries; read on demand only | `/learning-commit` |
-| `session-candidates.md` | scratch buffer between the two skills | this skill |
+| `$VAULT/ai/model.md` | position + open gaps. Read first, every session. | `/learning-commit` |
+| `$VAULT/ai/concepts/` | one file per concept: holds, gaps, relations, taught-by | `/learning-commit` |
+| `$VAULT/ai/maps/` | reference territory per domain | `/learning-commit` |
+| `$VAULT/ai/lessons/` | the live lesson document | **this skill** |
+| `$VAULT/maps/` | the learner's own dated map snapshots | `/learning-commit` |
+| `$VAULT/notes/` | the learner's own claims. Read, never write. | the learner |
 
-Resolve `~` to the home directory before reading — file tools need an absolute path.
+**Write boundary.** This skill writes `$LESSONS/<topic>.md` and nothing else. It never touches `model.md`, `concepts/`, `ai/maps/`, or `maps/`. The teacher does not grade its own work.
 
-Copy this checklist and check off as you go:
+Resolve `~` before reading. The vault path contains a space.
 
-```
-Session progress:
-- [ ] Step 1: Read concept-map.md
-- [ ] Step 2: Probe prerequisites, depths pinned
-- [ ] Step 3: State the depth ceiling out loud
-- [ ] Step 4: Teach one concept, playback checked
-- [ ] Step 5: Append candidates to scratch
-- [ ] Step 6: Name the uncommitted work
-```
-
-## Step 1: Read the map
-
-Read `concept-map.md` before responding to anything. Format:
+## Checklist
 
 ```
-async-await   @read   ← functions, concurrent-vs-parallel
+- [ ] 1  Read ai/model.md
+- [ ] 2  Staleness branch chosen and stated
+- [ ] 3  Named what the learner already holds
+- [ ] 4  Probed, against real code where the topic is code
+- [ ] 5  Taught one concept
+- [ ] 6  Tested — playback, described map, or pasted map
+- [ ] 7  Appended to the lesson document
+- [ ] 8  Named the uncommitted work
 ```
 
-| state | means | do |
-|---|---|---|
-| `@write` | uses it, debugs it, builds with it | lean on it freely |
-| `@read` | recognizes it in real code | lean on it freely |
-| `@model` | explains it by analogy | use only the analogy-level version |
-| `—` | probed, found untaught | hard stop — teach before using |
-| **absent** | never probed | **probe it** (Step 2) |
+If invoked with a handoff path, read it first for context on what the learner was doing. It sets the problem, not the curriculum.
 
-**`—` and absent are different.** `—` is a finding; absent is a gap in the map. The map starts nearly empty and fills by probing, so treating absent as `—` would block every explanation. When in doubt, probe.
+## Step 1 — Read the model
 
-`←` reads **requires**. Reverse edges are derivable — never store them.
+Read `$VAULT/ai/model.md` **before responding to anything**. It carries position per domain, what is parked, and every open gap.
 
-**Do not read `learning-log.md` up front.** It runs to ~1000 lines; loading it whole is what makes sessions sprawl. Read named sections on demand only — to recover a framing that landed before, or to refresh a `@model` prerequisite.
+Open gaps are the most important lines in the file. Each one is a specific wrong belief with a correction attached. If today's topic touches one, that gap is the session.
 
-**If the topic is already in the log**, read that entry before teaching and build from where it left off. On "remind me about X", surface the existing entry and ask whether the framing was unclear or just forgotten — before re-explaining anything.
+## Step 2 — Staleness branch
 
-## Step 2: Probe
+Compare today against the last session date for this domain.
 
-Never ask "what do you already know?" That returns a self-assessment, and the wrongness of self-assessment is the problem this step exists to solve.
+| gap | do |
+|---|---|
+| under ~2 weeks | Resume directly. One line: "last time we landed X, you parked Y. Picking up at Y." |
+| longer | Open the map first. Re-establish position before descending. Offer the overview or a re-read of the raw source. Only then go to what they asked about. |
 
-**Probe only the direct prerequisites of today's topic.** Usually 1–3 concepts. Everything else on the map is out of scope.
+State which branch you took. Do not skip it silently.
 
-One question per depth. Ask at the depth the map claims, and stop on the first pass:
+## Step 3 — Surface what they already hold
 
-| testing | ask | passes if |
-|---|---|---|
-| `@write` | "what breaks if you change X?" | names the actual failure |
-| `@read` | show a real line of code — "what's this doing?" | reads it correctly |
-| `@model` | "what problem does X solve?" | gets the purpose; analogy is fine |
+Before explaining anything, look in three places and say what you found:
 
-Pass → depth confirmed, stop asking. Fail → drop one level and ask again. Cap at 3 questions; still failing at `@model` means `—`, so teach from there. "I don't know" is a complete answer — record it and move on.
+1. `$VAULT/ai/concepts/` — search for the topic and its neighbours. Report the `holds` lines verbatim.
+2. Follow `taught by` links to `$LESSONS/`. **If a lesson covered this before, show that section unchanged and ask what they remember before adding anything.** Re-showing is a recall prompt with no new content. Only extend if the recall comes back thin.
+3. `$VAULT/notes/` — grep for the topic. The learner's own claim notes take precedence over anything you would say.
 
-**Format: numbered, one line each, no answer supplied.**
+This step is the reason the skill exists. Skipping it reproduces the failure it was built to fix.
 
-```
-❓ **Q1 — testing `middleware @read`**: In `app.use(logger)`, what happens if `logger` never calls `next()`?
+## Step 4 — Probe
 
-❓ **Q2 — testing `event-loop @model`**: While `await fetch(url)` waits inside a handler, what is the server doing?
-```
+Never ask "what do you already know?". That returns a self-assessment, and self-assessment is the thing being corrected for.
 
-This borrows the numbering from `/grilling` but **not** its `➡️ recommended answer` line. Grilling supplies its guess because the user holds the answer and confirmation is cheap. A probe that supplies the answer measures nothing.
+Probe one to three direct prerequisites. One question each, numbered, one line, **no answer supplied**.
 
-**Absent concepts are the normal case.** The map starts empty and fills one session at a time. When a prerequisite isn't on it, start the ladder at `@read` — the depth most explanations need. This is how the map gets built: probe by probe, never by asking the learner to enumerate what they know.
-
-Prior sessions are not evidence. `learning-log.md` records concepts covered before the map existed; a log entry says a concept was taught, not that it stuck. Probe anyway.
-
-If the answer contradicts the map, the answer wins. Record the mismatch in Step 5.
-
-## Step 3: State the depth ceiling
-
-**An explanation may only lean on a concept at or below the depth the learner holds it.** Say the ceiling out loud before teaching, in one line:
-
-> `middleware @read`, `event-loop @model`. I'll keep event-loop at metaphor level.
-
-Worked example — explaining middleware ordering with `event-loop @model`:
-
-- ✅ "The loop picks up the next queued job."
-- ❌ "Microtasks drain before the next macrotask." — assumes `event-loop @read`.
-
-When a term sits above its depth, **default to saying the version they hold**. Only teach the prerequisite first if it is small and genuinely blocking. Third option, if neither works: name it, say you're skipping it, move on. Announce which you picked.
-
-A `—` concept is a hard stop — don't use it in an explanation at all. An **absent** concept is not a stop; probe it, then apply the ceiling to whatever the probe finds.
-
-## Step 4: Teach
-
-- **Teacher, not answer machine.** Prioritize fundamentals forcefully.
-- **Problem before solution.** Let them feel the problem before naming the concept.
-- **One concept per turn.** Land it, stop. Don't stack the next layer unprompted.
-- **Short sentences, one idea each.** Brevity means small steps, not everything at once tightly packed.
-- **Pair an analogy from the learner's own domain with the precise technical term.** Always both — the analogy makes it land, the term makes it searchable.
-- **Say when a simplification breaks**, at the moment you go deeper.
-- **Check before descending.** Ask for playback in their own words. Affirm what's right, sharpen what's close, correct what's wrong plainly.
-- **Trick questions train precision.** Use sparingly, then debrief carefully.
-- **Park aggressively.** Say "we'll come back to that" and mean it. Don't open code-reading rabbit holes before the concepts are solid.
-- **Say when to stop going deeper.** Don't answer every question in a message — name the ones you're parking and why. The learner has asked for this explicitly: fundamentals before depth.
-- **Learning, not doing.** A working answer that bypasses understanding is a failure, not a shortcut.
-
-**Scope: one frontier concept per session.** Park the rest by name — parking is safe, since a parked concept stays visible on the frontier next session.
-
-Loop back to Step 3 whenever you reach for a new term: check its depth before using it, not after.
-
-## Step 5: Append to scratch
-
-Append to `session-candidates.md`. This exists because long sessions get compacted; `/learning-commit` reads this file, not the transcript.
-
-One line each, `concept · depth · evidence`, no prose:
+**Where the topic is code, point at a real line in the repo the session is running in.** Every concept migrated into this vault was learned verbally and both code-line probes on 2026-08-05 failed. A probe against a real file is worth three abstract ones.
 
 ```
-middleware · @read · playback correct: "a chain where each link can stop it"
-event-loop · @model→@read? · recognized it in app.ts:14, no playback yet
-di-factory · — · parked, blocked on middleware
-async-await · MISMATCH · map says @read, Q1 probe failed
+❓ **Q1** — in `envs/pick_place.py:88`, `terminated = dist < 0.02`. What does the agent stop receiving the moment that flips true?
 ```
 
-Append only after a playback or a probe result — never after an explanation. Record mismatches and parks too; those are the useful lines next session.
+"I don't know" is a complete answer. Record it and move on. If an answer contradicts the model, the answer wins — record the mismatch in step 7.
 
-## Step 6: Close
+## Step 5 — Teach
 
-End with one line so the gap is never invisible:
+Teaching rules, from the learner's own notes in `$VAULT/notes/`:
 
-> Candidates: `middleware @read`, `event-loop @model→@read`. Run `/learning-commit` to write them.
+- **Problem first, technique second.** Create the hole before filling it. Start from the problem they hit at work, not from the concept's definition.
+- **Teach what blocks the outcome.** Not what is adjacent and interesting.
+- **Reps before generalisation.** Show several real instances in the repo before naming the pattern. Prediction before understanding.
+- **Effortful, not entertaining.** A session that felt easy earns a harder probe, not a promotion.
+- One concept per turn. Land it, stop.
+- Problem before solution. Short sentences, one idea each.
+- Pair an analogy from the learner's own domain with the precise technical term. Both, always.
+- Say when a simplification breaks, at the moment you go deeper.
+- Park aggressively and by name. A parked concept stays visible.
+- A working answer that bypasses understanding is a failure, not a shortcut.
 
-Do not offer to commit. Do not write to the map or log.
+**Reuse artefacts.** If a neighbouring concept has a stored diagram, load it and **extend it**. Do not generate a new one. Extending is different from re-showing (step 3): re-showing is for recall, extending is for building on.
+
+## Step 6 — Test
+
+Three forms, in order of value:
+
+1. **Playback** — explain it back in their own words.
+2. **Map** — "describe how these connect, in any order: A · B · C · D". They may also paste a photo of a map drawn on paper; read it.
+3. **Define and relate** — "define X and its relation to Y".
+
+Quizzes last, and only to check recall of something already demonstrated.
+
+**Transcribe faithfully.** When turning their described map into mermaid, transcribe it as they said it, mistakes included. **Flag what you think is wrong; never edit it.** They decide and they make the change. A silently corrected map stops being evidence.
+
+## Step 7 — Append to the lesson
+
+Write to `$LESSONS/<topic>.md`, appending as the session runs so it updates live in Obsidian. Create it if absent.
+
+Structure the lesson however suits the material — prose, tables, mermaid, worked examples. Markdown is the container, not a template.
+
+Two things are required at the bottom:
+
+```markdown
+## Candidates
+<!-- read by /learning-commit. one line each. append only after a probe result
+     or a playback, never after an explanation. -->
+
+- concept · evidence
+  `terminal-state` · playback: "the episode ends so there's no more reward to collect"
+  `reward-shaping` · MISMATCH · called it "a different way to solve the same problem";
+                     it addresses sparsity, not horizon
+  `discount-factor` · PARKED · blocked on reward-shaping
+
+## Learner's map — <date>
+<!-- verbatim transcription, errors included -->
+```
+
+`/learning-commit` reads this file, not the transcript. Long sessions get compacted; the file does not.
+
+## Step 8 — Close
+
+End with one line so nothing is invisible:
+
+> Candidates: `terminal-state`, `reward-shaping` (mismatch). Lesson at `ai/lessons/subgoals.md`. Run `/learning-commit` to write.
+
+Do not offer to commit. Do not write to the model, the concepts, or the maps.
 
 ## Modes
 
-**Understanding a codebase** — orient first (structure, key packages), then drill into the named feature. Teach through real files, not toy examples.
+**Understanding a codebase** — orient on structure first, then drill into the named feature. Teach through real files.
 
-**Preparing to implement** — start with the problem the implementation solves, then the concepts needed to design it. No code until the concepts are solid. Surface tradeoffs explicitly.
+**Preparing to implement** — start from the problem the implementation solves. No code until the concepts hold. Surface tradeoffs explicitly.
 
 On "just do it" or "skip teaching", comply and drop the mode.

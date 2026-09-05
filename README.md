@@ -99,6 +99,8 @@ So this repo records **where they came from**, not what they contain. [`vendor/s
 
 The skills in this repo get **symlinked** rather than copied, so edits land in git instead of drifting from it. The third-party ones get reinstalled from source with [skills.sh](https://skills.sh), which puts them in `~/.agents/skills/` and symlinks them into each agent's directory. Real directory means mine; symlink means someone else's — a provenance check that costs one `find`.
 
+`skills.sh` installs into every agent directory it knows about, so a run ends with a red `Failed to install 15 — PromptScript does not support global skill installation` block. That is PromptScript refusing, not Claude Code. Check `~/.claude/skills/` rather than the summary.
+
 One skill sits outside both halves. [Interface Craft](https://www.interfacecraft.dev) by Josh Puckett arrived without an install source and ships no license file, so there's nothing to record in the manifest and nothing granting the right to redistribute it. `install.sh` names it and stops. That's the honest failure mode for the lockfile approach: it can only rebuild what came from somewhere it can point at.
 
 ### Sanitise before pushing

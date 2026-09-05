@@ -59,11 +59,17 @@ for source, names in sorted(by_source.items()):
 PY
 )"
 
+  # Collect first, then run. `skills add` reads stdin, so running it inside the
+  # read loop swallows the remaining lines and silently skips those sources.
+  cmds=()
   while IFS= read -r cmd; do
-    [ -n "$cmd" ] || continue
-    echo "+ $cmd"
-    eval "$cmd"
+    [ -n "$cmd" ] && cmds+=("$cmd")
   done <<<"$commands"
+
+  for cmd in "${cmds[@]}"; do
+    echo "+ $cmd"
+    eval "$cmd" </dev/null
+  done
 
   for patch in "$REPO"/vendor/patches/*.sh; do
     [ -e "$patch" ] || continue
